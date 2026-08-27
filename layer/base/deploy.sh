@@ -30,16 +30,32 @@ files+=("${IGconf_target_dir}/manifest")
 files+=("${IGconf_target_dir}/config.yaml")
 
 
+# Assets belonging to the disk image are versioned on deployment so they remain
+# identifiable once separated from the deploy directory. This matches the naming
+# of the IDP archive below. Everything else keeps its build-time name.
+deployname() {
+   local base="${1##*/}"
+   if [[ -n "${IGconf_image_name:-}" && -n "${IGconf_artefact_version:-}" \
+         && "$base" == "${IGconf_image_name}".* ]] ; then
+      printf '%s-%s.%s' "$IGconf_image_name" "$IGconf_artefact_version" \
+         "${base#"${IGconf_image_name}".}"
+   else
+      printf '%s' "$base"
+   fi
+}
+
+
 echo "Installing assets..."
 mkdir -p "$IGconf_deploy_dir"
 for f in "${files[@]}" ; do
    [[ -f "$f" ]] || continue
+   out="${IGconf_deploy_dir}/$(deployname "$f")"
    case "$IGconf_deploy_compression" in
       zstd)
-         zstd -v -f "$f" --sparse --output-dir-flat "$IGconf_deploy_dir"
+         zstd -v -f "$f" --sparse -o "${out}.zst"
          ;;
       none)
-         cp -v --sparse=always "$f" "$IGconf_deploy_dir"
+         cp -v --sparse=always "$f" "$out"
          ;;
       *)
          ;;
